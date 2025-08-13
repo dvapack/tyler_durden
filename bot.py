@@ -1,6 +1,6 @@
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from gigachat import GigaChat
+from openai import OpenAI
 import os
 from dotenv import load_dotenv
 import random
@@ -9,17 +9,15 @@ import asyncio
 
 load_dotenv()
 
-GIGACHAT_API_KEY = os.getenv('GIGACHAT_API_KEY')
+BASE_URL = os.getenv('BASE_URL')
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-if GIGACHAT_API_KEY is None:
-    raise ValueError("GIGACHAT_API_KEY environment variable not set")
+if BASE_URL is None:
+    raise ValueError("BASE_URL environment variable not set")
 if BOT_TOKEN is None:
         raise ValueError("BOT_TOKEN environment variable not set")
 
-llm = GigaChat(credentials=GIGACHAT_API_KEY,
-               verify_ssl_certs=False,
-               model="GigaChat:latest")
+client = OpenAI(base_url=BASE_URL, api_key="lm-studio")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -49,11 +47,18 @@ async def save_and_reply(message: types.Message):
 
     random_num = random.randint(1, 10)
     if len(message_history[chat_id]) >= random_num:
-        history = json.dumps(message_history, ensure_ascii=False)
-        resp = llm.chat(prompt + history)
+        history = json.dumps(message_history[chat_id], ensure_ascii=False)
+        completion = client.chat.completions.create(
+          model="model-identifier",
+          messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": history}
+          ],
+          temperature=0.7,
+        )
         await bot.send_message(
             chat_id=chat_id,
-            text=f"{resp.choices[0].message.content}"
+            text=f"{completion.choices[0].message.content}"
         )
         message_history[chat_id] = []
 
